@@ -6,19 +6,19 @@ use tokio;
 
 #[derive(Serialize, Deserialize)]
 pub struct PostData {
-    author: Option<String>,
+    author: Option<u32>,
     title: String,
     body: String,
-    language: Option<String>
+    language: Option<u32>
     //expiry: Option<String>
 }
 
-pub fn build_paste(contents: String, author: Option<String>, title: String, expiry: Option<String>) -> PostData {
+pub fn build_paste(contents: String, author: Option<u32>, title: String, expiry: Option<String>) -> PostData {
     let data: PostData = PostData {
         author: author,
         title: title,
         body: contents,
-        language: Some(String::from("https://sillypaste.herokuapp.com/api/language/470/"))
+        language: Some(470)
         //expiry: None
     };
     return data;

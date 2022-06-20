@@ -16,19 +16,7 @@ pub struct SillyPasteClient {
 }
 
 impl SillyPasteClient {
-    pub fn new(uri: String) -> SillyPasteClient {
-        let tls_conn = hyper_tls::HttpsConnector::new();
-        let conn = Client::builder().
-            build::<_, Body>(tls_conn);
-        return SillyPasteClient {
-            user: None,
-            token: None,
-            connection: conn,
-            uri: uri
-        };
-    }
-        
-    pub async fn new_login(username: String, password: String, uri: String) -> Result<SillyPasteClient, String> {
+    pub async fn new(username: String, password: String, uri: String) -> Result<SillyPasteClient, String> {
         let tls_conn = hyper_tls::HttpsConnector::new();
         let conn = Client::builder().
             build::<_, Body>(tls_conn);
@@ -54,8 +42,8 @@ impl SillyPasteClient {
         let data = match &self.user {
             Some(c) => {
                 let token = self.token.clone().unwrap();
-                let author = self.uri.clone() + "/api/user/" + &c.id().to_string() + "/";
-                let body = json!(post::build_paste(contents, Some(author), title, None));
+                //let author = self.uri.clone() + "/api/user/" + &c.id().to_string() + "/";
+                let body = json!(post::build_paste(contents, Some(c.id()), title, None));
                 println!("{}", body.clone().to_string());
                 Request::builder().
                     method(Method::POST).
@@ -67,6 +55,7 @@ impl SillyPasteClient {
                 },
             None => {
                 let body = json!(post::build_paste(contents, None, title, None));
+                println!("{}", body.clone().to_string());
                 Request::builder().
                     method(Method::POST).
                     header("content-type", "application/json").
