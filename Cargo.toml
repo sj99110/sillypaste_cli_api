@@ -1,0 +1,15 @@
+[package]
+name = "sillypaste_cli_api"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hyper = {version = "0.14.19", features = ["full"]}
+hyper-tls = "0.5"
+tokio = {version = "1", features = ["full"]}
+serde_json = "1.0.81"
+chrono = "0.4"
+serde = { version = "1.0", features = ["derive"]}
+clap = {version = "3.2", features = ["derive"]}
