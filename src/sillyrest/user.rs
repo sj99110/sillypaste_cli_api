@@ -27,10 +27,11 @@ impl User {
     }
 }
 
-pub async fn login(username: String, password: String, conn: Client<HttpsConnector<HttpConnector>>) -> Result<String, String> {
+pub async fn login(username: String, password: String, conn: Client<HttpsConnector<HttpConnector>>, uri: String) -> Result<String, String> {
+    let uri = uri + "/api/login/";
     let post = Request::builder().
         method(Method::POST).
-        uri("https://sillypaste.herokuapp.com/api/login/").
+        uri(uri).
         header("content-type", "application/json").
         body(Body::from((json!({
             "username": username,
@@ -49,11 +50,12 @@ pub async fn login(username: String, password: String, conn: Client<HttpsConnect
     return Ok(token);
 }
 
-pub async fn logout(token: String, conn: Client<HttpsConnector<HttpConnector>>) -> ()
+pub async fn logout(token: String, conn: Client<HttpsConnector<HttpConnector>>, uri: String) -> ()
 {
+    let uri = uri + "/api/login/";
     let request = Request::builder().
         method(Method::POST).
-        uri("https://sillypaste.herokuapp.com/api/logout/").
+        uri(uri).
         header("Authorization", String::from("Token ") + &token).
         header("content-type", "application/json").
         body(Body::from("")).
@@ -62,10 +64,11 @@ pub async fn logout(token: String, conn: Client<HttpsConnector<HttpConnector>>) 
         return ()
     }
 
-pub async fn get_user_info(token: String, conn: Client<HttpsConnector<HttpConnector>>) -> Result<User, String> {
+pub async fn get_user_info(token: String, conn: Client<HttpsConnector<HttpConnector>>, uri: String) -> Result<User, String> {
+    let uri = uri + "/api/user/me/";
     let request = Request::builder().
         method(Method::GET).
-        uri("https://sillypaste.herokuapp.com/api/user/me/").
+        uri(uri).
         header("Authorization", String::from("Token ") + &token).
         header("content-type", "application/json").
         body(Body::from("")).

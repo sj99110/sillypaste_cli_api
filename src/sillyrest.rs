@@ -32,11 +32,11 @@ impl SillyPasteClient {
         let tls_conn = hyper_tls::HttpsConnector::new();
         let conn = Client::builder().
             build::<_, Body>(tls_conn);
-        let token = match user::login(username, password, conn.clone()).await {
+        let token = match user::login(username, password, conn.clone(), uri.clone()).await {
             Ok(c) => c,
             Err(_) => return Err(String::from("login failed"))
         };
-        let user = match user::get_user_info(token.clone(), conn.clone()).await {
+        let user = match user::get_user_info(token.clone(), conn.clone(), uri.clone()).await {
             Ok(c) => c,
             Err(_) => return Err(String::from("login failed. unable to get user info"))
         };
