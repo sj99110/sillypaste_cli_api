@@ -6,11 +6,30 @@ use hyper::client::connect::{HttpConnector};
 use hyper_tls;
 use hyper_tls::{HttpsConnector};
 use serde_json::{json, Value};
+use serde::{Serialize, Deserialize};
+use std::vec;
 use tokio;
+use std::collections::{BTreeMap};
+
+#[derive(Serialize, Deserialize)]
+pub struct LanguageDE {
+    id: u32,
+    name: String
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LangList {
+    count: u32,
+    next: Option<String>,
+    prev: Option<String>,
+    results: Vec<LanguageDE>
+}
+
+type SillyError = (String, u32);
 
 pub struct SillyPasteClient {
-    user: Option<user::User>,
-    token: Option<String>,
+    user: user::User,
+    token: String,
     connection: Client<HttpsConnector<HttpConnector>>,
     uri: String
 }
@@ -29,50 +48,78 @@ impl SillyPasteClient {
             Err(_) => return Err(String::from("login failed. unable to get user info"))
         };
         return Ok(SillyPasteClient {
-            user: Some(user),
-            token: Some(token),
+            user: user,
+            token: token,
             connection: conn,
             uri: uri
         });
     }
-    pub async fn upload_paste(&self, contents: String, title: String, expiry: Option<u32>) -> Result<(), String>{
-        let conn = self.connection.clone();
-        let uri = self.uri.clone() + "/api/paste/";
-        println!("{}", uri.clone());
-        let data = match &self.user {
-            Some(c) => {
-                let token = self.token.clone().unwrap();
-                //let author = self.uri.clone() + "/api/user/" + &c.id().to_string() + "/";
-                let body = json!(post::build_paste(contents, Some(c.id()), title, None));
-                println!("{}", body.clone().to_string());
-                Request::builder().
-                    method(Method::POST).
-                    uri(uri).
-                    header("content-type", "application/json").
-                    header("Authoirzation", String::from("Token ") + &token).
-                    body(Body::from(body.to_string())).
-                    expect("auth post error")
-                },
-            None => {
-                let body = json!(post::build_paste(contents, None, title, None));
-                println!("{}", body.clone().to_string());
-                Request::builder().
-                    method(Method::POST).
-                    header("content-type", "application/json").
-                    uri(uri).
-                    body(Body::from(body.to_string())).
-                    expect("upload_paste failed")
-            }
-        } ;
-        let resp = match conn.request(data).await {
+    async fn send_request(&self, uri: String, method: Method, body: String) -> Result<Body, SillyError> {
+        let data = Request::builder().
+            method(method).
+            uri(uri).
+            header("content-type", "application/json").
+            header("Authoirzation", String::from("Token ") + &self.token).
+            body(Body::from(body)).
+            expect("");
+        let resp = match self.connection.request(data).await {
             Ok(c) => c,
-            Err(_) => return Err(String::from("paste failed"))
+            Err(_) => return Err((String::from("failed to get response"), 0))
         };
         if !resp.status().is_success() {
-            let (parts, body) = resp.into_parts();
-            println!("{:#?}\n {:#?}", parts, hyper::body::to_bytes(body).await.unwrap());
-            return Err(String::from("postfail"));
+            return Err((String::from(""), resp.status().as_u16() as u32));
         }
+        let (parts, body) = resp.into_parts();
+        return Ok(body);
+    }
+    pub async fn upload_paste(&self, contents: String, title: String, expiry: Option<String>) -> Result<(), SillyError>{
+        let uri = self.uri.clone() + "/api/paste/";
+        let body = json!(post::build_paste(contents, self.user.id(), title, None));
+        match self.send_request(uri, Method::POST, body.to_string()).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e)
+        };
         return Ok(());
     }
+    pub async fn fetch_posts(&self, limit: u32, offset: u32) -> Result<Vec<post::PostData>, SillyError> {
+        let uri = self.uri.clone() + "/api/paste/?limit=" + &limit.to_string() +
+            "?offset=" + &(offset * 25).to_string();
+        let body = match self.send_request(uri, Method::GET, String::from("")).await {
+            Ok(b) => b,
+            Err(e) => return Err(e)
+        };
+        let posts = match post::parse_post_list(hyper::body::to_bytes(body).await.unwrap()) {
+            Ok(c) => return Ok(c.posts()),
+            Err(_) => return Err((String::from("fetch fail"), 1))
+        };
+    }
+    pub async fn retrieve_post(&self, post_id: u32) -> Result<post::PostData, SillyError> {
+        let uri = self.uri.clone() + "/api/paste/" + &post_id.to_string() + "/";
+        let data = match self.send_request(uri, Method::GET, String::from("")).await {
+            Ok(c) => c,
+            Err(e) => return Err(e)
+        };
+        let body = match hyper::body::to_bytes(data).await {
+            Ok(c) => c,
+            Err(_) => return Err((String::from("to bytes failure in retrieve posts"), 0))
+        };
+        println!("{:#?}", &body);
+        return match serde_json::from_slice(&body) {
+            Ok(c) => c,
+            Err(e) =>  {
+                println!("serde {:#?}", e);
+                return Err((String::from("error parsing post data"), 0));
+            }
+        }
+    }
+    /*pub async fn retrieve_language_codes(&self) -> BTreeMap<String, u32> {
+        let uri = self.uri.clone() + "/api/language/?limit=500";
+        let data = Request::builder().
+            method(Method::GET).
+            uri(uri).
+            header("content/type", "application/json").
+            header("Authorization", String::from("Token ") + &self.token).
+            body(Body::from("")).
+            expect("language");
+        }*/
 }
