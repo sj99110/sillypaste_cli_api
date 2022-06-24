@@ -11,13 +11,13 @@ use std::vec;
 use tokio;
 use std::collections::{BTreeMap};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct LanguageDE {
-    id: u32,
-    name: String
+    pub name: String,
+    pub id: u32
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct LangList {
     count: u32,
     next: Option<String>,
@@ -32,6 +32,17 @@ pub struct SillyPasteClient {
     token: String,
     connection: Client<HttpsConnector<HttpConnector>>,
     uri: String
+}
+
+impl LangList {
+    pub fn into_map(&self) -> BTreeMap<String, u32> {
+        let mut lang_map = BTreeMap::new();
+        let list_iter = self.results.clone().into_iter();
+        for x in list_iter {
+            lang_map.insert(x.name, x.id);
+        }
+        return lang_map;
+    }
 }
 
 impl SillyPasteClient {
@@ -105,21 +116,17 @@ impl SillyPasteClient {
         };
         println!("{:#?}", &body);
         return match serde_json::from_slice(&body) {
-            Ok(c) => c,
+            Ok(c) => Ok(c),
             Err(e) =>  {
                 println!("serde {:#?}", e);
                 return Err((String::from("error parsing post data"), 0));
             }
         }
     }
-    /*pub async fn retrieve_language_codes(&self) -> BTreeMap<String, u32> {
+    pub async fn retrieve_language_codes(&self) -> BTreeMap<String, u32> {
         let uri = self.uri.clone() + "/api/language/?limit=500";
-        let data = Request::builder().
-            method(Method::GET).
-            uri(uri).
-            header("content/type", "application/json").
-            header("Authorization", String::from("Token ") + &self.token).
-            body(Body::from("")).
-            expect("language");
-        }*/
+        let data = self.send_request(uri, Method::GET, String::from("")).await.unwrap();
+        let lang_list: LangList = serde_json::from_slice(&hyper::body::to_bytes(data).await.unwrap()).unwrap();
+        return lang_list.into_map();
+    }
 }
