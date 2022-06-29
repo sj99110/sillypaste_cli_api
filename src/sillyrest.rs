@@ -65,6 +65,21 @@ impl SillyPasteClient {
             uri: uri
         });
     }
+    pub async fn with_token(token: String, uri: String) -> Result<SillyPasteClient, u32> {
+        let tls_conn = hyper_tls::HttpsConnector::new();
+        let conn = Client::builder().
+            build::<_, Body>(tls_conn);
+        let user = match user::get_user_info(token.clone(), conn.clone(), uri.clone()).await {
+            Ok(c) => c,
+            Err(_) => return Err(0)
+        };
+        return Ok(SillyPasteClient {
+            user: user,
+            token: token,
+            connection: conn,
+            uri: uri
+        });
+    }
     async fn send_request(&self, uri: String, method: Method, body: String) -> Result<Body, SillyError> {
         let data = Request::builder().
             method(method).
@@ -128,5 +143,11 @@ impl SillyPasteClient {
         let data = self.send_request(uri, Method::GET, String::from("")).await.unwrap();
         let lang_list: LangList = serde_json::from_slice(&hyper::body::to_bytes(data).await.unwrap()).unwrap();
         return lang_list.into_map();
+    }
+    pub fn token(&self) -> String {
+        return self.token.clone();
+    }
+    pub fn user(&self) -> user::User  {
+        return self.user.clone();
     }
 }
