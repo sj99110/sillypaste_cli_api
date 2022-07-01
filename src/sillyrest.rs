@@ -98,14 +98,17 @@ impl SillyPasteClient {
         let (parts, body) = resp.into_parts();
         return Ok(body);
     }
-    pub async fn upload_paste(&self, contents: String, title: String, expiry: Option<String>) -> Result<(), SillyError>{
+    pub async fn upload_paste(&self, contents: String, title: String, expiry: Option<String>) -> Result<String, SillyError>{
         let uri = self.uri.clone() + "/api/paste/";
         let body = json!(post::build_paste(contents, self.user.id(), title, None));
         match self.send_request(uri, Method::POST, body.to_string()).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e)
+            Ok(c) => {
+                let json: post::PostData = serde_json::from_slice(&hyper::body::to_bytes(c).await.unwrap()).unwrap();
+                let uri = self.uri.clone() + "/" + &json.id().unwrap().to_string() + "/";
+                return Ok(uri);
+            },
+            Err(e) => return Err(e)
         };
-        return Ok(());
     }
     pub async fn fetch_posts(&self, limit: u32, offset: u32) -> Result<Vec<post::PostData>, SillyError> {
         let uri = self.uri.clone() + "/api/paste/?limit=" + &limit.to_string() +
